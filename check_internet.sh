@@ -1,5 +1,20 @@
 #!/bin/bash
 #https://www.domoticz.com/wiki/Bash_-_Speedtest.net_Download/Upload/Ping_monitoring
+#figure out the working path to run and store temp files in 
+CRON_SCRIPT_PATH="/usr/local/bin/internet_speed"
+if ! tty > /dev/null; then
+	echo "running non interactively From cron"
+	SCRIPT_PATH="$CRON_SCRIPT_PATH"
+else
+	echo "Not from cron"
+	SCRIPT_PATH=$(pwd)
+fi
+
+echo "SCRIPT_PATH=$SCRIPT_PATH"
+TEMP_FILE="$SCRIPT_PATH/speedtest.txt"
+OUTPUT_FILE="$SCRIPT_PATH/date_time.txt"
+REPORT_EMAIL="ommacmini@gmail.com"
+
 wget -q --spider http://google.com
 
 if [ $? -eq 0 ]; then
@@ -20,11 +35,11 @@ idxbb=4
 
 # no need to edit
 # speedtest-cli --simple --server $serverst > outst.txt
-speedtest-cli --simple > speedtest.txt
+speedtest-cli --simple > $TEMP_FILE
 
-download=$(cat speedtest.txt | sed -ne 's/^Download: \([0-9]*\.[0-9]*\).*/\1/p')
-upload=$(cat speedtest.txt | sed -ne 's/^Upload: \([0-9]*\.[0-9]*\).*/\1/p')
-png=$(cat speedtest.txt | sed -ne 's/^Ping: \([0-9]*\.[0-9]*\).*/\1/p')
+download=$(cat "$TEMP_FILE" | sed -ne 's/^Download: \([0-9]*\.[0-9]*\).*/\1/p')
+upload=$(cat "$TEMP_FILE" | sed -ne 's/^Upload: \([0-9]*\.[0-9]*\).*/\1/p')
+png=$(cat "$TEMP_FILE" | sed -ne 's/^Ping: \([0-9]*\.[0-9]*\).*/\1/p')
 
 # output if you run it manually
 echo "Download = $download Mbps "
@@ -43,12 +58,13 @@ wget -q --delete-after "http://$host/json.htm?type=command&param=udevice&idx=$id
 wget -q --delete-after "http://$host/json.htm?type=command&param=addlogmessage&message=speedtest.net-logging" >/dev/null 2>&1
 
 # Write the speeds and timestamps in the text file    
-   echo "$a$b$c$download$c$upload$c$png" >> /home/om/scripts/logs/date_time.txt
- if [ $download -le 20 ]; then  
-  mail -s "Internet speed" ommacmini@gmail.com <<< "$a$b$c$download$c$upload$c$png" 
+   echo "$a$b$c$download$c$upload$c$png" >> "$OUTPUT_FILE"
+# if [ $download -le 20 ]; then  
+if  (( `echo $download'<='20 | bc` )); then
+  mail -s "Internet speed" "$REPORT_EMAIL" <<< "$a$b$c$download$c$upload$c$png" 
   fi
 else
     a= "Offline :"
     b=`date`
-    echo "$a$b" >> /home/om/scripts/logs/date_time.txt
+    echo "$a$b" >> "$OUTPUT_FILE"
 fi
